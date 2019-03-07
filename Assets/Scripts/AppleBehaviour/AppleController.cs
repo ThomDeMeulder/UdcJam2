@@ -17,7 +17,6 @@ public class AppleController : MonoBehaviour, IControllerTarget
         xNegative = ShouldBeNegative();
         yNegative = ShouldBeNegative();
         zNegative = ShouldBeNegative();
-        Debug.Log($"Values {xNegative}, {yNegative}, {zNegative}");
     }
 
     protected virtual void OnCollisionEnter(Collision other)
