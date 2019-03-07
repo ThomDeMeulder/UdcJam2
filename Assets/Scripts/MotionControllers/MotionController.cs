@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.XR;
 
+[RequireComponent(typeof(LineRenderer))]
 public class MotionController : MonoBehaviour
 {
     [Header("Controller Settings")]
@@ -20,7 +21,12 @@ public class MotionController : MonoBehaviour
     [Header("Teleport Settings")]
     [SerializeField]
     protected GameObject prefab;
+    [SerializeField]
+    protected Material lineColor;
+    [SerializeField]
+    protected float lineRendererWidth = 0.1f;
 
+    protected LineRenderer lineRenderer;
     protected GameObject teleportGameObject = null;
     protected bool grabThresholdReached, wantsToTeleport, gameEnded;
 
@@ -42,6 +48,16 @@ public class MotionController : MonoBehaviour
         }
     }
 #endif
+
+    protected virtual void Awake()
+    {
+        lineRenderer = GetComponent<LineRenderer>();
+        lineRenderer.enabled = false;
+        lineRenderer.startWidth = lineRendererWidth;
+        lineRenderer.endWidth = lineRendererWidth;
+        lineRenderer.positionCount = 2;
+        lineRenderer.material = lineColor;
+    }
 
     protected virtual void Update()
     {
@@ -68,7 +84,7 @@ public class MotionController : MonoBehaviour
         {
             if (!hit.collider.CompareTag("Ground"))
             {
-                DestroyTeleportGameObject();
+                DisableTeleportObjects();
                 return;
             }
 
@@ -78,7 +94,7 @@ public class MotionController : MonoBehaviour
             rotationPoint += forwardDirection * vertical;
             rotationPoint += Quaternion.Euler(0.0f, 90.0f, 0.0f) * forwardDirection * -horizontal;
 
-            UpdateTeleportGameObject(hit.point, -(rotationPoint - hit.point));
+            UpdateTeleportObjects(hit.point, -(rotationPoint - hit.point));
 
             if (!IsJoystickDown(horizontal) && !IsJoystickDown(vertical))
             {
@@ -86,21 +102,25 @@ public class MotionController : MonoBehaviour
 
                 var angle = Vector3.SignedAngle(forwardDirection, -(rotationPoint - hit.point), Vector3.up);
                 Player.Instance.Teleport(hit.point, angle);
-                DestroyTeleportGameObject();
+                DisableTeleportObjects();
                 EventManager<PlayerTeleportEvent>.CallEvent(new PlayerTeleportEvent());
             }
         }
-        else DestroyTeleportGameObject();
+        else DisableTeleportObjects();
     }
 
-    protected virtual void DestroyTeleportGameObject()
+    protected virtual void DisableTeleportObjects()
     {
+        lineRenderer.enabled = false;
         if (teleportGameObject == null) return;
         teleportGameObject.SetActive(false);
     }
 
-    protected virtual void UpdateTeleportGameObject(Vector3 position, Vector3 rotation)
+    protected virtual void UpdateTeleportObjects(Vector3 position, Vector3 rotation)
     {
+        if (!lineRenderer.enabled) lineRenderer.enabled = true;
+        UpdateLineRendererPosition(position);
+
         if (teleportGameObject == null)
         {
             teleportGameObject = Instantiate(prefab, position, Quaternion.LookRotation(rotation));
@@ -112,6 +132,12 @@ public class MotionController : MonoBehaviour
         teleportGameObject.transform.position = position;
         teleportGameObject.transform.forward = rotation;
         UpdateRotation(teleportGameObject.transform);
+    }
+
+    protected virtual void UpdateLineRendererPosition(Vector3 targetPosition)
+    {
+        lineRenderer.SetPosition(0, transform.position);
+        lineRenderer.SetPosition(1, targetPosition);
     }
 
     protected virtual bool IsJoystickDown(float input) => input >= joystickThreshold || input <= -joystickThreshold;
